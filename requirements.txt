@@ -1,4 +1,4 @@
-STREAMLIST
-ST-GSHEETS-CONNECTION
-GSPREAD
-PANDAS
+streamlit
+st-gsheets-connection
+gspread
+pandas
