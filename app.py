@@ -35,9 +35,9 @@ for clave, datos in st.secrets["precios"].items():
         }
 
 try:
-    FACTOR_1 = float(st.secrets["FACTOR_1"])
-    FACTOR_2 = float(st.secrets["FACTOR_2"])
-    DESCUENTO = float(st.secrets["DESCUENTO"])
+    FACTOR_1 = float(st.secrets["factores"]["FACTOR_1"])
+    FACTOR_2 = float(st.secrets["factores"]["FACTOR_2"])
+    DESCUENTO = float(st.secrets["factores"]["DESCUENTO"])
 except (KeyError, ValueError):
     st.error("Error de configuración. Avisa al administrador.")
     st.stop()
@@ -46,6 +46,13 @@ except (KeyError, ValueError):
 def redondear_a_25_superior(valor):
     """Redondea siempre hacia arriba al múltiplo de 25 más cercano."""
     return int(math.ceil(valor / 25.0) * 25)
+
+def formatear_euros(valor, decimales=0):
+    """Devuelve el número en formato español: 1.234,56"""
+    if decimales == 0:
+        return f"{int(valor):,}".replace(",", ".") + " €"
+    else:
+        return f"{valor:,.{decimales}f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
 
 # ========== Formulario ==========
 st.title("Calculadora de intercambiadores")
@@ -63,15 +70,16 @@ if st.button("Calcular"):
 
         # Fórmula oculta
         precio_bruto = (precio_bastidor + (precio_placa * placas)) * FACTOR_1 * FACTOR_2
-        precio_con_descuento = precio_bruto * (1 - DESCUENTO)
 
-        # Redondeo a múltiplo de 25 por arriba
+        # Redondeo SOLO del precio bruto, al múltiplo de 25 por arriba
         precio_bruto_redondeado = redondear_a_25_superior(precio_bruto)
-        precio_final_redondeado = redondear_a_25_superior(precio_con_descuento)
+
+        # El descuento se aplica sobre el bruto YA redondeado, sin redondear
+        precio_final = precio_bruto_redondeado * (1 - DESCUENTO)
 
         # Mostrar resultados
-        st.success(f"💰 Precio sin descuento: {precio_bruto_redondeado:,} €".replace(",", "."))
-        st.success(f"🎉 Precio con descuento (50%): {precio_final_redondeado:,} €".replace(",", "."))
+        st.success(f"💰 Precio sin descuento: {formatear_euros(precio_bruto_redondeado, 0)}")
+        st.success(f"🎉 Precio con descuento (50%): {formatear_euros(precio_final, 2)}")
 
         # Guardar en Google Sheets
         nueva_fila = {
@@ -80,7 +88,7 @@ if st.button("Calcular"):
             "tipo": tipo,
             "placas": placas,
             "precio_bruto": precio_bruto_redondeado,
-            "precio_final": precio_final_redondeado,
+            "precio_final": round(precio_final, 2),
         }
         try:
             df = conn.read()
