@@ -3,7 +3,6 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 import math
-import json
 
 st.set_page_config(page_title="Herramienta interna", page_icon="🔒")
 
@@ -26,33 +25,36 @@ if not st.session_state.auth:
 # ========== Conexión con Google Sheets ==========
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ========== Cargar precios desde Secrets (método JSON) ==========
+# ========== Cargar precios y factores desde Secrets ==========
 try:
-    precios_json = st.secrets["PRECIOS_JSON"]
-    precios = json.loads(precios_json)
-    # Convertimos los precios a float por seguridad
-    for clave, datos in precios.items():
-        datos["bastidor"] = float(datos["bastidor"])
-        datos["placa"] = float(datos["placa"])
-except (KeyError, ValueError, json.JSONDecodeError) as e:
-    st.error(f"Error de configuración de precios. Avisa al administrador. ({e})")
+    precios_secret = st.secrets["precios"]
+
+    precios = {}
+    for clave, datos in precios_secret.items():
+        if isinstance(datos, dict) and "nombre" in datos and "bastidor" in datos:
+            precios[datos["nombre"]] = {
+                "bastidor": float(datos["bastidor"]),
+                "placa": float(datos["placa"]),
+            }
+
+    if not precios:
+        st.error("No se han encontrado precios configurados. Avisa al administrador.")
+        st.stop()
+
+    FACTOR_1 = float(precios_secret["FACTOR_1"])
+    FACTOR_2 = float(precios_secret["FACTOR_2"])
+    DESCUENTO = float(precios_secret["DESCUENTO"])
+except (KeyError, ValueError) as e:
+    st.error(f"Error de configuración. Avisa al administrador. ({e})")
     st.stop()
 
-try:
-    FACTOR_1 = float(st.secrets["FACTOR_1"])
-    FACTOR_2 = float(st.secrets["FACTOR_2"])
-    DESCUENTO = float(st.secrets["DESCUENTO"])
-except (KeyError, ValueError):
-    st.error("Error de configuración de factores. Avisa al administrador.")
-    st.stop()
-
-# ========== Función de redondeo ==========
+# ========== Funciones auxiliares ==========
 def redondear_a_25_superior(valor):
     """Redondea siempre hacia arriba al múltiplo de 25 más cercano."""
     return int(math.ceil(valor / 25.0) * 25)
 
 def formatear_euros(valor, decimales=0):
-    """Devuelve el número en formato español: 1.234,56"""
+    """Devuelve el número en formato español: 1.234,56 €"""
     if decimales == 0:
         return f"{int(valor):,}".replace(",", ".") + " €"
     else:
@@ -62,27 +64,15 @@ def formatear_euros(valor, decimales=0):
 st.title("Calculadora de intercambiadores")
 
 usuario = st.text_input("Tu nombre")
-nombres_tipos = [precios[k]["nombre"] for k in precios]
-tipo = st.selectbox("Tipo de intercambiador", nombres_tipos)
+tipo = st.selectbox("Tipo de intercambiador", list(precios.keys()))
 placas = st.number_input("Número de placas", min_value=1, step=1, value=1)
 
 if st.button("Calcular"):
     if not usuario.strip():
         st.warning("Escribe tu nombre antes de calcular.")
     else:
-        # Buscamos los datos del tipo seleccionado
-        datos_tipo = None
-        for clave, datos in precios.items():
-            if datos["nombre"] == tipo:
-                datos_tipo = datos
-                break
-
-        if datos_tipo is None:
-            st.error("Tipo no encontrado. Avisa al administrador.")
-            st.stop()
-
-        precio_bastidor = datos_tipo["bastidor"]
-        precio_placa = datos_tipo["placa"]
+        precio_bastidor = precios[tipo]["bastidor"]
+        precio_placa = precios[tipo]["placa"]
 
         # Fórmula oculta
         precio_bruto = (precio_bastidor + (precio_placa * placas)) * FACTOR_1 * FACTOR_2
