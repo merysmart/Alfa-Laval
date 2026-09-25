@@ -26,27 +26,32 @@ if not st.session_state.auth:
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # ========== Cargar precios y factores desde Secrets ==========
-try:
-    precios_secret = st.secrets["precios"]
+precios_secret = st.secrets["precios"]
 
-    precios = {}
-    for clave, datos in precios_secret.items():
-        if isinstance(datos, dict) and "nombre" in datos and "bastidor" in datos:
-            precios[datos["nombre"]] = {
-                "bastidor": float(datos["bastidor"]),
-                "placa": float(datos["placa"]),
-            }
+# --- DEPURACIÓN TEMPORAL ---
+st.write("**Contenido de `st.secrets['precios']`:**")
+st.write(dict(precios_secret))
+st.write("---")
+# --- FIN DEPURACIÓN ---
 
-    if not precios:
-        st.error("No se han encontrado precios configurados. Avisa al administrador.")
-        st.stop()
+precios = {}
+for clave, datos in precios_secret.items():
+    st.write(f"Procesando **{clave}**: tipo = `{type(datos).__name__}` → {datos}")
+    if hasattr(datos, "get") and datos.get("nombre") and datos.get("bastidor"):
+        precios[datos["nombre"]] = {
+            "bastidor": float(datos["bastidor"]),
+            "placa": float(datos["placa"]),
+        }
 
-    FACTOR_1 = float(precios_secret["FACTOR_1"])
-    FACTOR_2 = float(precios_secret["FACTOR_2"])
-    DESCUENTO = float(precios_secret["DESCUENTO"])
-except (KeyError, ValueError) as e:
-    st.error(f"Error de configuración. Avisa al administrador. ({e})")
+st.write(f"**Precios encontrados:** {list(precios.keys())}")
+
+if not precios:
+    st.error("No se han encontrado precios configurados. Avisa al administrador.")
     st.stop()
+
+FACTOR_1 = float(precios_secret["FACTOR_1"])
+FACTOR_2 = float(precios_secret["FACTOR_2"])
+DESCUENTO = float(precios_secret["DESCUENTO"])
 
 # ========== Funciones auxiliares ==========
 def redondear_a_25_superior(valor):
