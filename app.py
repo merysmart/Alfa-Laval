@@ -93,7 +93,7 @@ if st.button("Calcular"):
             "precio_final": round(precio_final, 2),
         }
         try:
-            df = conn.read()
+            df = conn.read(ttl=0)  # ← aquí el cambio: lee siempre fresco, sin caché
             nueva_fila_df = pd.DataFrame([nueva_fila])
             df = pd.concat([df, nueva_fila_df], ignore_index=True)
             conn.update(data=df)
