@@ -28,22 +28,13 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # ========== Cargar precios y factores desde Secrets ==========
 precios_secret = st.secrets["precios"]
 
-# --- DEPURACIÓN TEMPORAL ---
-st.write("**Contenido de `st.secrets['precios']`:**")
-st.write(dict(precios_secret))
-st.write("---")
-# --- FIN DEPURACIÓN ---
-
 precios = {}
 for clave, datos in precios_secret.items():
-    st.write(f"Procesando **{clave}**: tipo = `{type(datos).__name__}` → {datos}")
     if hasattr(datos, "get") and datos.get("nombre") and datos.get("bastidor"):
         precios[datos["nombre"]] = {
             "bastidor": float(datos["bastidor"]),
             "placa": float(datos["placa"]),
         }
-
-st.write(f"**Precios encontrados:** {list(precios.keys())}")
 
 if not precios:
     st.error("No se han encontrado precios configurados. Avisa al administrador.")
